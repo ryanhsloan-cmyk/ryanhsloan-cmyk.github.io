@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIF & Audio to MP4 Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom styles for smooth transitions and modern feel */
+        body {
+            background-color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .upload-zone {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .upload-zone:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .hidden-element {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .visible-element {
+            display: block;
+            opacity: 1;
+            animation: fadeIn 0.4s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800 p-4 md:p-8 flex flex-col items-center">
+
+    <div class="max-w-3xl w-full bg-white rounded-2xl shadow-xl overflow-hidden mt-6">
+        
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 md:p-8 text-white text-center">
+            <h1 class="text-3xl font-bold flex items-center justify-center gap-3">
+                <i data-lucide="film" class="w-8 h-8"></i>
+                GIF + Audio Merger
+            </h1>
+            <p class="mt-2 text-blue-100 max-w-lg mx-auto">
+                Combine a looping GIF and an audio track into an MP4 video directly in your browser. Files are processed locally.
+            </p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="p-6 md:p-8">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                
+                <!-- GIF Upload -->
+                <div class="relative">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">1. Select GIF</label>
+                    <label for="gif-input" class="upload-zone flex flex-col items-center justify-center w-full h-40 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <i data-lucide="image" class="w-10 h-10 text-gray-400 mb-3"></i>
+                            <p class="text-sm text-gray-500 font-medium" id="gif-label">Click to upload GIF</p>
+                            <p class="text-xs text-gray-400 mt-1">.gif format</p>
+                        </div>
+                        <input id="gif-input" type="file" accept="image/gif" class="hidden" />
+                    </label>
+                </div>
+
+                <!-- Audio Upload -->
+                <div class="relative">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">2. Select Audio Track</label>
+                    <label for="audio-input" class="upload-zone flex flex-col items-center justify-center w-full h-40 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <i data-lucide="music" class="w-10 h-10 text-gray-400 mb-3"></i>
+                            <p class="text-sm text-gray-500 font-medium" id="audio-label">Click to upload Audio</p>
+                            <p class="text-xs text-gray-400 mt-1">.mp3, .wav, .m4a</p>
+                        </div>
+                        <input id="audio-input" type="file" accept="audio/*" class="hidden" />
+                    </label>
+                </div>
+            </div>
+
+            <!-- Error Message Box -->
+            <div id="error-box" class="hidden-element bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start gap-3">
+                <i data-lucide="alert-circle" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
+                <div>
+                    <p class="font-bold">Error</p>
+                    <p id="error-message" class="text-sm mt-1"></p>
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <button id="generate-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2 text-lg">
+                <i data-lucide="play-circle" class="w-6 h-6"></i>
+                Generate Video
+            </button>
+
+            <!-- Processing Status Zone -->
+            <div id="progress-container" class="hidden-element mt-8 bg-gray-50 p-6 rounded-xl border border-gray-200">
+                <div class="flex justify-between mb-2">
+                    <span class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-600"></i>
+                        <span id="status-text">Loading FFmpeg core...</span>
+                    </span>
+                    <span class="text-sm font-bold text-blue-600" id="progress-percent">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-gray-500 mt-3 text-center">Processing happens locally. This might take a moment depending on file size.</p>
+            </div>
+
+            <!-- Result Zone -->
+            <div id="result-container" class="hidden-element mt-8 border-t border-gray-100 pt-8">
+                <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="check-circle-2" class="w-5 h-5 text-green-500"></i>
+                    Video Ready!
+                </h3>
+                
+                <div class="bg-black rounded-xl overflow-hidden shadow-inner flex justify-center mb-6">
+                    <video id="result-video" controls class="max-w-full max-h-[400px]"></video>
+                </div>
+
+                <a id="download-btn" href="#" download="merged_video.mp4" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 text-md">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    Download Video
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Load FFmpeg dependencies as ES Modules -->
+    <script type="module">
+        import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+        import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+        // Initialize Icons
+        lucide.createIcons();
+
+        // State Variables
+        let gifFile = null;
+        let audioFile = null;
+        let ffmpeg = null;
+
+        // DOM Elements
+        const gifInput = document.getElementById('gif-input');
+        const audioInput = document.getElementById('audio-input');
+        const gifLabel = document.getElementById('gif-label');
+        const audioLabel = document.getElementById('audio-label');
+        
+        const generateBtn = document.getElementById('generate-btn');
+        const errorBox = document.getElementById('error-box');
+        const errorMessage = document.getElementById('error-message');
+        
+        const progressContainer = document.getElementById('progress-container');
+        const statusText = document.getElementById('status-text');
+        const progressBar = document.getElementById('progress-bar');
+        const progressPercent = document.getElementById('progress-percent');
+        
+        const resultContainer = document.getElementById('result-container');
+        const resultVideo = document.getElementById('result-video');
+
+        // Event Listeners for File Inputs
+        gifInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                gifFile = e.target.files[0];
+                gifLabel.textContent = gifFile.name;
+                gifLabel.classList.add('text-blue-600', 'font-semibold');
+                hideError();
+            }
+        });
+
+        audioInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                audioFile = e.target.files[0];
+                audioLabel.textContent = audioFile.name;
+                audioLabel.classList.add('text-blue-600', 'font-semibold');
+                hideError();
+            }
+        });
+
+        // Initialize and Load FFmpeg
+        async function loadFFmpeg() {
+            if (ffmpeg) return ffmpeg;
+            
+            ffmpeg = new FFmpeg();
+
+            // Set up log and progress handlers
+            ffmpeg.on('log', ({ message }) => {
+                console.log('[FFmpeg]', message);
+            });
+
+            ffmpeg.on('progress', ({ progress }) => {
+                // Progress is a decimal between 0 and 1
+                let percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
+                
+                // If it's a very fast conversion, jump to 100
+                if (percent < 0 || isNaN(percent)) percent = 0;
+                
+                progressBar.style.width = `${percent}%`;
+                progressPercent.textContent = `${percent}%`;
+                
+                if (percent > 0 && percent < 100) {
+                    statusText.textContent = 'Encoding video...';
+                }
+            });
+
+            // Use the single-threaded core for better browser compatibility without COOP/COEP headers
+            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+            
+            try {
+                await ffmpeg.load({
+                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                });
+            } catch (err) {
+                throw new Error("Failed to load FFmpeg. Your browser might block WebAssembly, or there is a network issue.");
+            }
+            
+            return ffmpeg;
+        }
+
+        // Show/Hide Helpers
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorBox.classList.remove('hidden-element');
+            errorBox.classList.add('visible-element');
+        }
+
+        function hideError() {
+            errorBox.classList.remove('visible-element');
+            errorBox.classList.add('hidden-element');
+        }
+
+        // Main Conversion Logic
+        generateBtn.addEventListener('click', async () => {
+            // Validation
+            if (!gifFile || !audioFile) {
+                showError("Please select both a GIF file and an Audio file before generating.");
+                return;
+            }
+
+            hideError();
+            
+            // Reset UI State
+            resultContainer.classList.remove('visible-element');
+            resultContainer.classList.add('hidden-element');
+            
+            generateBtn.disabled = true;
+            generateBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            progressContainer.classList.remove('hidden-element');
+            progressContainer.classList.add('visible-element');
+            
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+            statusText.textContent = 'Loading FFmpeg environment...';
+
+            try {
+                const ffmpegInstance = await loadFFmpeg();
+                
+                statusText.textContent = 'Preparing files...';
+                
+                // Extract audio extension to map it correctly in FFmpeg
+                const audioExt = audioFile.name.split('.').pop() || 'mp3';
+                const audioInputName = `input.${audioExt}`;
+
+                // Write files to virtual filesystem
+                await ffmpegInstance.writeFile('input.gif', await fetchFile(gifFile));
+                await ffmpegInstance.writeFile(audioInputName, await fetchFile(audioFile));
+
+                statusText.textContent = 'Starting conversion...';
+
+                // Execute FFmpeg command
+                // -stream_loop -1 : Loop the input stream infinitely
+                // -shortest : Stop encoding when the shortest stream ends (the audio)
+                // -pix_fmt yuv420p : Ensure broad compatibility in media players
+                await ffmpegInstance.exec([
+                    '-stream_loop', '-1',
+                    '-i', 'input.gif',
+                    '-i', audioInputName,
+                    '-c:v', 'libx264',
+                    '-c:a', 'aac',
+                    '-shortest',
+                    '-pix_fmt', 'yuv420p',
+                    'output.mp4'
+                ]);
+
+                statusText.textContent = 'Finalizing video...';
+
+                // Read result
+                const data = await ffmpegInstance.readFile('output.mp4');
+                
+                // Convert Uint8Array to Blob URL
+                const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+                const videoUrl = URL.createObjectURL(videoBlob);
+
+                // Update UI with Result
+                resultVideo.src = videoUrl;
+                document.getElementById('download-btn').href = videoUrl;
+                
+                progressContainer.classList.remove('visible-element');
+                progressContainer.classList.add('hidden-element');
+
+                resultContainer.classList.remove('hidden-element');
+                resultContainer.classList.add('visible-element');
+                
+            } catch (err) {
+                console.error(err);
+                showError(err.message || "An unexpected error occurred during processing.");
+                progressContainer.classList.remove('visible-element');
+                progressContainer.classList.add('hidden-element');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
+
+    </script>
+</body>
+</html>
