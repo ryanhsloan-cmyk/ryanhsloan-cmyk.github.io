@@ -140,7 +140,7 @@
     <!-- Load FFmpeg dependencies as ES Modules -->
     <script type="module">
         import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-        import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+        import { fetchFile } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
 
         // Initialize Icons
         lucide.createIcons();
@@ -202,7 +202,6 @@
                 // Progress is a decimal between 0 and 1
                 let percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
                 
-                // If it's a very fast conversion, jump to 100
                 if (percent < 0 || isNaN(percent)) percent = 0;
                 
                 progressBar.style.width = `${percent}%`;
@@ -212,17 +211,15 @@
                     statusText.textContent = 'Encoding video...';
                 }
             });
-
-            // Use the single-threaded core for better browser compatibility without COOP/COEP headers
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
             
             try {
+                // Hardcoded URLs to public CDNs to prevent 404/infinite loading on GitHub Pages
                 await ffmpeg.load({
-                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+                    wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
                 });
             } catch (err) {
-                throw new Error("Failed to load FFmpeg. Your browser might block WebAssembly, or there is a network issue.");
+                throw new Error("Failed to load FFmpeg. Please check your internet connection.");
             }
             
             return ffmpeg;
@@ -268,25 +265,19 @@
                 const ffmpegInstance = await loadFFmpeg();
                 
                 statusText.textContent = 'Preparing files...';
-                
-                // Extract audio extension to map it correctly in FFmpeg
-                const audioExt = audioFile.name.split('.').pop() || 'mp3';
-                const audioInputName = `input.${audioExt}`;
 
                 // Write files to virtual filesystem
+                // We name the audio file 'input.mp3' universally so the exact command works
                 await ffmpegInstance.writeFile('input.gif', await fetchFile(gifFile));
-                await ffmpegInstance.writeFile(audioInputName, await fetchFile(audioFile));
+                await ffmpegInstance.writeFile('input.mp3', await fetchFile(audioFile));
 
                 statusText.textContent = 'Starting conversion...';
 
-                // Execute FFmpeg command
-                // -stream_loop -1 : Loop the input stream infinitely
-                // -shortest : Stop encoding when the shortest stream ends (the audio)
-                // -pix_fmt yuv420p : Ensure broad compatibility in media players
+                // Execute exact required FFmpeg command
                 await ffmpegInstance.exec([
                     '-stream_loop', '-1',
                     '-i', 'input.gif',
-                    '-i', audioInputName,
+                    '-i', 'input.mp3',
                     '-c:v', 'libx264',
                     '-c:a', 'aac',
                     '-shortest',
